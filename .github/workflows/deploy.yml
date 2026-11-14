@@ -10,7 +10,8 @@ permissions:
   packages: write
 
 env:
-  IMAGE: ghcr.io/org666777148852/nasa-api:${{ github.sha }}
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ghcr.io/org666777148852/nasa-api
 
 jobs:
   test:
@@ -30,25 +31,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Log in to GHCR
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-      - name: Build and push image
-        run: |
-          docker build --pull --tag "$IMAGE" --tag ghcr.io/org666777148852/nasa-api:latest .
-          docker push "$IMAGE"
-          docker push ghcr.io/org666777148852/nasa-api:latest
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
 
   deploy:
     needs: publish
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Log in to GHCR
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Prepare SSH access
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -75,6 +83,7 @@ jobs:
       - name: Deploy image to Docker Swarm
         env:
           DOCKER_HOST: ssh://nasa-api-manager
+          IMAGE: ${{ env.IMAGE_NAME }}:${{ github.sha }}
         run: docker stack deploy --with-registry-auth --detach=false -c docker-stack.yml nasa-api
       - name: Remove SSH key
         if: always()
