@@ -10,7 +10,7 @@ permissions:
   packages: write
 
 env:
-  IMAGE: ghcr.io/org666777148852/api:${{ github.sha }}
+  IMAGE: ghcr.io/org666777148852/nasa-api:${{ github.sha }}
 
 jobs:
   test:
@@ -36,9 +36,9 @@ jobs:
         run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
       - name: Build and push image
         run: |
-          docker build --pull --tag "$IMAGE" --tag ghcr.io/org666777148852/api:latest .
+          docker build --pull --tag "$IMAGE" --tag ghcr.io/org666777148852/nasa-api:latest .
           docker push "$IMAGE"
-          docker push ghcr.io/org666777148852/api:latest
+          docker push ghcr.io/org666777148852/nasa-api:latest
 
   deploy:
     needs: publish
