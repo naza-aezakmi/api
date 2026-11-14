@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 
-app = FastAPI(title="NASA API")
+app = FastAPI(title="NASA API", docs_url="/docs")
 
 app.add_middleware(
     CORSMiddleware,

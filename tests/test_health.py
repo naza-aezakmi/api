@@ -12,6 +12,12 @@ def test_health() -> None:
     assert response.json() == {"status": "ok"}
 
 
+def test_swagger_docs() -> None:
+    response = client.get("/docs")
+    assert response.status_code == 200
+    assert "Swagger UI" in response.text
+
+
 def test_site_origin_can_call_health() -> None:
     response = client.options(
         "/health",
