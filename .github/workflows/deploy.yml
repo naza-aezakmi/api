@@ -1,0 +1,81 @@
+name: Test, publish and deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/org666777148852/api:${{ github.sha }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Check health and CORS
+        run: python -m pytest -q
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to GHCR
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Build and push image
+        run: |
+          docker build --pull --tag "$IMAGE" --tag ghcr.io/org666777148852/api:latest .
+          docker push "$IMAGE"
+          docker push ghcr.io/org666777148852/api:latest
+
+  deploy:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to GHCR
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Prepare SSH access
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -eu
+          mkdir -p "$RUNNER_TEMP/ssh" "$HOME/.ssh"
+          chmod 700 "$RUNNER_TEMP/ssh" "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/ssh/key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$RUNNER_TEMP/ssh/known_hosts"
+          chmod 600 "$RUNNER_TEMP/ssh/key" "$RUNNER_TEMP/ssh/known_hosts"
+          cat >> "$HOME/.ssh/config" <<EOF
+          Host nasa-api-manager
+            HostName $DEPLOY_HOST
+            User $DEPLOY_USER
+            IdentityFile $RUNNER_TEMP/ssh/key
+            IdentitiesOnly yes
+            UserKnownHostsFile $RUNNER_TEMP/ssh/known_hosts
+            StrictHostKeyChecking yes
+          EOF
+          chmod 600 "$HOME/.ssh/config"
+      - name: Deploy image to Docker Swarm
+        env:
+          DOCKER_HOST: ssh://nasa-api-manager
+        run: docker stack deploy --with-registry-auth --detach=false -c docker-stack.yml nasa-api
+      - name: Remove SSH key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/ssh"

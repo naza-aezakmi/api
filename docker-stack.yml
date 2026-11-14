@@ -1,0 +1,36 @@
+networks:
+  traefik_public:
+    external: true
+    name: traefik_traefik_proxy
+
+services:
+  api:
+    image: ${IMAGE}
+    networks:
+      - traefik_public
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen("http://127.0.0.1:8000/health", timeout=3)
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      update_config:
+        parallelism: 1
+        order: start-first
+        failure_action: rollback
+        monitor: 60s
+      labels:
+        - traefik.enable=true
+        - traefik.swarm.network=traefik_traefik_proxy
+        - traefik.http.routers.nasa-api.rule=Host(`api.nasa.aezakmi.org`)
+        - traefik.http.routers.nasa-api.entrypoints=websecure
+        - traefik.http.routers.nasa-api.tls.certresolver=le
+        - traefik.http.services.nasa-api.loadbalancer.server.port=8000
