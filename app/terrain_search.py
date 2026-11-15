@@ -5,6 +5,8 @@ from pydantic import BaseModel, Field, model_validator
 
 from .terrain_engine import engine
 from .terrain_priorities import rank_objective, weights_for
+from .countries import country_at
+from .terrain_explain import explain_candidates
 
 
 router = APIRouter(tags=["Terrain"])
@@ -35,6 +37,23 @@ class Metrics(BaseModel):
     roughness: float
 
 
+class FeatureAttribution(BaseModel):
+    feature: Feature
+    weight: float
+    penalty: float
+    baseline_penalty: float
+    shap_value: float
+
+
+class CandidateExplanation(BaseModel):
+    method: Literal["exact_interventional_shap_additive_score"]
+    background: str
+    background_size: int
+    baseline_score: float
+    score: float
+    features: list[FeatureAttribution]
+
+
 class Candidate(Metrics):
     position: int
     lat: float
@@ -44,6 +63,9 @@ class Candidate(Metrics):
     rotation: int
     values: list[float]
     usa: bool
+    country: str | None = None
+    country_code: str | None = None
+    explanation: CandidateExplanation | None = None
 
 
 class TerrainSource(BaseModel):
@@ -82,6 +104,10 @@ async def search(payload: SearchRequest) -> SearchResult:
     weights = weights_for(order or payload.priorities)
     try:
         result = await engine.search(payload.planet, payload.lat, payload.lon, weights)
+        result["matches"] = [
+            {**candidate, **country_at(candidate["lat"], candidate["lon"])}
+            for candidate in explain_candidates(result["matches"], result["criteria"], weights)
+        ]
         return SearchResult.model_validate({
             **result, "weights": weights,
             "prioritySource": "ai" if order else "default" if custom else "preset",

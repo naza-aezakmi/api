@@ -2,6 +2,30 @@
 
 The production website uses `POST /terrain/search` for **both Moon and Mars**. It returns ten Earth candidates per point and study objective, using the same four weighted criteria: aligned elevation profile, elevation range, mean slope and RMS roughness. The existing field screen and geographic shortlist rules apply to both bodies. `/terrain/analogs` below is a separate experimental prototype catalog and is not used by the current website flow.
 
+## Country labels, exact SHAP and environmental passports
+
+Each `/terrain/search` candidate now includes `country`, `country_code` and `explanation`. Labels are determined offline from bundled Natural Earth 1:50m country polygons; an unresolved point stays null rather than being assigned an invented country. Antarctica is a geographic label, not a sovereign-state assertion.
+
+The explanation uses exact interventional SHAP of the additive mismatch score. For matching descriptor j, `phi_j = penalty_j(candidate) − mean_shortlist(penalty_j)`. The baseline is the **mean score of the returned ten places**, not the entire Earth or a training population. Baseline plus all four attributions reconstructs the ranking score. Negative attribution reduces mismatch relative to that baseline; positive increases it. This explains terrain scoring, while water screening and geographic allocation remain separate selection rules. Tests independently compare all 24 feature permutations with the analytical result. No approximate explainer or extra inference service is needed.
+
+The plane-gradient normalization was corrected to sum x²/y² over **all 25 samples**: 312,500,000 m² for the 2.5 km spacing. The previous constant was half that sum, overestimated gradients and could clamp genuine residual roughness to zero. Known-plane and known-residual tests validate the physical values. This correction can reorder candidates; contextual climate still has no effect on ranking.
+
+`POST /terrain/context` accepts source and Earth coordinates:
+
+```json
+{"planet":"moon","lat":0.674,"lon":23.473,"earth_lat":31.701,"earth_lon":59.352}
+```
+
+It returns two separate passports and `used_in_ranking: false`. The user explicitly selected contextual climate, so these values **do not change ranking**:
+
+- Earth: NASA POWER / MERRA-2 annual air and skin temperature, coldest/warmest monthly mean air temperature, relative humidity, precipitation, wind at 10 m and surface pressure. The source's actual climatological period is preserved; kPa are converted to Pa. Missing sentinels become null; a real zero is retained.
+- Mars: the bundled MCD 6.2 coarse snapshot at Ls=0°, local solar noon, average solar scenario; surface temperature and atmospheric temperature/pressure/wind at 10 m. Humidity and precipitation are unavailable, not zero.
+- Moon: NASA LRO Diviner Global Cumulative Product, 2009-07-05…2015-04-01. A 0.5° spatial bin contains 96 quarter-hour lunar local-time mean bolometric temperatures. Range requests fetch only that bin's 10,848 bytes from the PDS table. The reader validates 206/Content-Range, length and row coordinates before using data. The passport reports min/max/span across available observations plus valid-bin coverage; missing local-time bins and unresolved shadowed craters limit the range. Lunar local time does not mean a 24-Earth-hour day.
+
+Earth climate norms, a Mars model snapshot and lunar surface radiometry differ in period, height and physical quantity. The passports show those differences and never claim environmental equivalence. Source failures return an unavailable passport without affecting terrain results. Successful point responses are cached in process; failed upstream calls can be retried. The web loads conditions separately so the ten search results appear first.
+
+Context artifacts live in the ML repository under `artifacts/environment`; `python3 ../ml/scripts/export.py --api .` synchronizes them. Rebuild country data with `ml/scripts/build_country_index.py` and the Mars snapshot with `ml/scripts/export_context_data.py`. Runtime uses Python's standard library only.
+
 ## Mars ML analog lookup
 
 `POST /terrain/analogs` returns the trained terrain type, three named Earth candidates, feature-by-feature evidence, and separate climate context for a Mars coordinate:

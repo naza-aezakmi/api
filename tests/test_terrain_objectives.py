@@ -37,6 +37,12 @@ def test_objective_weights_rank_ten_candidates_from_each_planet(planet, coordina
             scores = [m["score"] for m in result["matches"]]
             assert scores == sorted(scores)
             for match in result["matches"]:
+                assert match["country"]
+                explanation = match["explanation"]
+                assert explanation["method"] == "exact_interventional_shap_additive_score"
+                assert explanation["background_size"] == 10
+                reconstructed = explanation["baseline_score"] + math.fsum(f["shap_value"] for f in explanation["features"])
+                assert math.isclose(reconstructed, match["score"], rel_tol=1e-8, abs_tol=1e-8)
                 assert len(match["values"]) == 25
                 expected = (
                     weights["profile"] * (match["error"] / 100) ** 2
