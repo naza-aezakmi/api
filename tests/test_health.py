@@ -67,3 +67,16 @@ def test_search_rejects_unsupported_planets_and_invalid_coordinates() -> None:
         {"planet": "mars", "lat": 91, "lon": 0},
     ):
         assert client.post("/terrain/search", json=payload).status_code == 422
+
+
+def test_search_runs_from_bundled_terrain_data() -> None:
+    response = client.post("/terrain/search", json={
+        "planet": "moon", "lat": 0, "lon": 0,
+        "priorities": ["slope", "profile", "range", "roughness"],
+    })
+    assert response.status_code == 200
+    result = response.json()
+    assert len(result["matches"]) == 8
+    assert result["source"]["label"] == "NASA LRO LOLA · LDEM_64"
+    assert result["weights"]["slope"] == .45
+    assert result["prioritySource"] == "preset"

@@ -1,11 +1,10 @@
-import json
-import os
 from typing import Annotated, Literal
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, model_validator
+
+from .terrain_engine import engine
+from .terrain_priorities import rank_objective, weights_for
 
 
 router = APIRouter(tags=["Terrain"])
@@ -76,20 +75,16 @@ class SearchResult(BaseModel):
 
 
 @router.post("/terrain/search", response_model=SearchResult, summary="Find Earth analogues for a lunar or Martian point")
-def search(payload: SearchRequest) -> SearchResult:
+async def search(payload: SearchRequest) -> SearchResult:
     """Compare window-scale elevation grids and return ranked terrestrial analogues."""
-    request = Request(
-        os.environ.get("TERRAIN_SEARCH_URL", "https://nasa.aezakmi.org/api/terrain-search"),
-        data=payload.model_dump_json(exclude_none=True).encode(),
-        headers={"Content-Type": "application/json", "Accept": "application/json"},
-        method="POST",
-    )
+    custom = (payload.objective or "").strip()
+    order = await rank_objective(custom) if custom else None
+    weights = weights_for(order or payload.priorities)
     try:
-        with urlopen(request, timeout=60) as upstream:
-            return SearchResult.model_validate(json.load(upstream))
-    except HTTPError as exc:
-        if exc.code == 429:
-            raise HTTPException(429, "Terrain search is busy") from exc
-        raise HTTPException(503, "Terrain search is temporarily unavailable") from exc
-    except (URLError, OSError, ValueError) as exc:
+        result = await engine.search(payload.planet, payload.lat, payload.lon, weights)
+        return SearchResult.model_validate({
+            **result, "weights": weights,
+            "prioritySource": "ai" if order else "default" if custom else "preset",
+        })
+    except (OSError, RuntimeError, ValueError) as exc:
         raise HTTPException(503, "Terrain search is temporarily unavailable") from exc

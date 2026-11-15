@@ -25,7 +25,10 @@ Pushes to `main` run tests, build and publish `ghcr.io/org666777148852/nasa-api`
 The repository Actions secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_KEY`, and `DEPLOY_KNOWN_HOSTS` provide deployment access.
 
 `POST /terrain/search` accepts a lunar or Martian latitude and longitude and returns
-the same ranked Earth analogues as the web atlas. Open `/docs` to try it.
-The endpoint forwards requests to the terrain engine bundled in the web service.
-For local testing, override `TERRAIN_SEARCH_URL` with
-`http://127.0.0.1:3001/api/terrain-search`.
+ranked Earth analogues. The API owns the Atlas relief data and runs its worker in a
+persistent local Node.js process. It does not call the web service. Node.js 22 is
+required for local development; the production image includes it. Set
+`TERRAIN_ATLAS_PATH` to use another compatible relief index.
+
+Set `OPENAI_API_KEY` and `TERRAIN_AI_MODEL` on this service to rank priorities for
+custom objectives. Without them, the API uses the default priorities.
