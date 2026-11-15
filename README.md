@@ -1,6 +1,10 @@
 # NASA API
 
-The production website uses `POST /terrain/search` for **both Moon and Mars**. It returns ten Earth candidates per point and study objective, using the same four weighted criteria: aligned elevation profile, elevation range, mean slope and RMS roughness. The existing field screen and geographic shortlist rules apply to both bodies. `/terrain/analogs` below is a separate experimental prototype catalog and is not used by the current website flow.
+The production website uses `POST /terrain/search` for **both Moon and Mars**. It returns ten Earth candidates per point and study objective, using the same four weighted criteria: aligned elevation profile, elevation range, fitted-plane slope and RMS roughness. The existing field screen and geographic shortlist rules apply to both bodies. `/terrain/analogs` below is a separate experimental prototype catalog and is not used by the current website flow.
+
+The `slope` descriptor is the inclination of a least-squares plane over 25 height samples, rather than a mean of local slope angles. The [ML method card](https://github.com/Org666777148852/ml/blob/main/docs/MODEL_CARD.md) defines all four descriptors, units, weights, the squared weighted Euclidean mismatch and its validation limits. [Data provenance and audited counts](https://github.com/Org666777148852/ml/blob/main/docs/DATA_SOURCES.md) distinguish windows from independent observations and training samples.
+
+The persistent worker keeps a bounded LRU of 64 successful results, keyed by planet, resolved atlas cell and all four objective weights. Repeated clicks in the same cell reuse the exact result. Different planets or weights cannot share entries. Failures are not cached; process restart clears the cache. Candidate pool, scoring, screening, geographic allocation, countries and SHAP are unchanged.
 
 ## Country labels, exact SHAP and environmental passports
 

@@ -33,6 +33,11 @@ new Function('fetch', 'self', read('relief-codec.js') + '\n' +
   read('relief-worker.js').replace('importScripts("relief-codec.js");', '') +
   '\nself.cellCenter = point;')(fetchFile, scope)
 
+// A click resolves to a fixed atlas cell. Reuse exact results for repeated cells
+// and identical objective weights, with a bounded in-process LRU (64 shortlists).
+const resultCache = new Map()
+const FEATURES = ['profile', 'range', 'slope', 'roughness']
+
 async function search(request) {
   const { radius, rows, label, resolution } = manifest.worlds[request.planet]
   const latitude = request.lat * Math.PI / 180
@@ -42,13 +47,25 @@ async function search(request) {
   const row = rows[rows[0][0] - j]
   if (!row || i < -row[1] || i >= row[1]) return { kind: 'error' }
   const position = row[2] + row[1] + i
+  const key = JSON.stringify([request.planet, position, ...FEATURES.map(feature => request.weights[feature])])
+  if (resultCache.has(key)) {
+    const result = resultCache.get(key)
+    resultCache.delete(key)
+    resultCache.set(key, result)
+    return result
+  }
   sourceWindow = { ...scope.cellCenter(rows, radius, manifest.step, position), label, resolution }
-  return new Promise((accept, reject) => {
+  const result = await new Promise((accept, reject) => {
     respond = accept
     Promise.resolve(scope.onmessage({ data: {
       id: 1, body: request.planet, position, weights: request.weights, screen,
     } })).catch(reject)
   })
+  if (result.kind === 'results') {
+    resultCache.set(key, result)
+    if (resultCache.size > 64) resultCache.delete(resultCache.keys().next().value)
+  }
+  return result
 }
 
 async function main() {
