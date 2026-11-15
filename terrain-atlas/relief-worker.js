@@ -35,7 +35,9 @@ function rotations(values, size) {
 
 // The 5 × 5 sampling window has centered, orthogonal east and north axes.
 const AXIS = [-5000, -2500, 0, 2500, 5000];
-const AXIS_SQUARES = 156250000;
+// Sum x² (or y²) over all 25 samples, not just half of the grid. This is
+// the least-squares denominator for both plane gradients and residual RMS.
+const AXIS_SQUARES = AXIS.reduce((sum, value) => sum + value ** 2, 0) * AXIS.length;
 
 function terrainStats(values, scale) {
   let sum = 0;
