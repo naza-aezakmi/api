@@ -150,7 +150,7 @@ function findMatches(tiles, query, manifest, options) {
   const unitedStates = [];
   const byTerrain = (a, b) => a.score - b.score || a.position - b.position;
   const candidate = new Int16Array(size);
-  const keep = 8;
+  const keep = 10;
   const usaSlots = 3;
   let eligibleCount = 0;
   const stride = 4 + size * 2;

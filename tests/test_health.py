@@ -76,7 +76,7 @@ def test_search_runs_from_bundled_terrain_data() -> None:
     })
     assert response.status_code == 200
     result = response.json()
-    assert len(result["matches"]) == 8
+    assert len(result["matches"]) == 10
     assert result["source"]["label"] == "NASA LRO LOLA · LDEM_64"
     assert result["weights"]["slope"] == .45
     assert result["prioritySource"] == "preset"

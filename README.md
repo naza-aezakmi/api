@@ -1,5 +1,7 @@
 # NASA API
 
+The production website uses `POST /terrain/search` for **both Moon and Mars**. It returns ten Earth candidates per point and study objective, using the same four weighted criteria: aligned elevation profile, elevation range, mean slope and RMS roughness. The existing field screen and geographic shortlist rules apply to both bodies. `/terrain/analogs` below is a separate experimental prototype catalog and is not used by the current website flow.
+
 ## Mars ML analog lookup
 
 `POST /terrain/analogs` returns the trained terrain type, three named Earth candidates, feature-by-feature evidence, and separate climate context for a Mars coordinate:
@@ -10,7 +12,7 @@
 
 Latitudes are −90…90°; longitudes −180…360° east (normalized in the response). Unsupported planets and invalid coordinates return 422. The complete global 0.5° type map and catalog are bundled under `app/data/mars`, already included by `COPY app ./app` in the Dockerfile. Inference uses Python's standard library; no model server, external service, sklearn, or key is required. The existing `/terrain/search` flow is unchanged.
 
-The release comes from the sibling `ml` repository: run `python3 ../ml/scripts/export.py --api .` and commit the exported data and `app/mars_lookup.py`. Run `pytest -q` under Python 3.12 / Node 22 before deployment. The website's instant Mars card uses the identical browser bundle and can deploy independently of this endpoint.
+The release comes from the sibling `ml` repository: run `python3 ../ml/scripts/export.py --api .` and commit the exported data and `app/mars_lookup.py`. Run `pytest -q` under Python 3.12 / Node 22 before deployment. The experimental browser bundle can be used independently of this endpoint; it is not the website's current search path.
 
 The model explains regional terrain similarity, not soil composition, climate equivalence, or rover passability. Every coordinate in one of the ten classes shares its Earth catalog. Read the ML repository's model card before interpreting results.
 
