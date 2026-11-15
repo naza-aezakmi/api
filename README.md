@@ -1,11 +1,14 @@
 # NASA API
 
-Small FastAPI service for the NASA Moon and Mars explorer.
+**[Explorer](https://nasa.aezakmi.org)** · **[Interactive API docs](https://api.nasa.aezakmi.org/docs)** · **[Health check](https://api.nasa.aezakmi.org/health)**
+
+FastAPI service for the [Moon and Mars explorer](https://github.com/Org666777148852/web). It owns the terrain data, search worker, request validation, and optional AI priority ranking. The web app only forwards search requests here.
 
 ## Endpoints
 
 - `GET /health` returns `{"status":"ok"}`.
 - `GET /docs` shows the generated API documentation.
+- `POST /terrain/search` ranks Earth terrain analogues for a Moon or Mars location.
 
 Cross-origin requests are allowed from `https://nasa.aezakmi.org`.
 
@@ -17,6 +20,8 @@ python3.12 -m venv .venv
 .venv/bin/uvicorn app.main:app --reload
 .venv/bin/pytest -q
 ```
+
+Node.js 22 is also required to run the bundled relief worker. The production image includes it.
 
 ## Deployment
 
