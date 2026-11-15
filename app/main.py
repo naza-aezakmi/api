@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .terrain_search import router as terrain_search
+from .mars_analogs import router as mars_analogs
 
 
 app = FastAPI(title="NASA API", docs_url="/docs")
@@ -15,6 +16,7 @@ app.add_middleware(
 
 
 app.include_router(terrain_search)
+app.include_router(mars_analogs)
 
 
 @app.get("/health")
